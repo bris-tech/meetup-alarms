@@ -76,7 +76,7 @@ function processCardChecklists(cardName, cardDue, cardURL) {
   };
 }
 
-t.get("/1/boards/VcltdZag/cards", { since: today, before: eightWeeks, fields: 'name,due' }, function(err, data) {
+t.get("/1/boards/VcltdZag/cards", { since: yesterday, before: eightWeeks, fields: 'name,due,url' }, function(err, data) {
   if (err) throw err;
   for (var i = 0, card; card = data[i]; i++) {
     t.get('/1/cards/' + card.id + '/checklists', { fields: 'name', card_fields: 'due' }, processCardChecklists(card.name, Date.parse(card.due).getTime()));
