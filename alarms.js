@@ -1,5 +1,6 @@
 var Trello = require('node-trello');
 var nodemailer = require("nodemailer");
+var Q = require('q');
 var trelloKey = '698e58f291aaec1fdb8ff04ef21f9381';
 
 if (!process.env['TRELLO_TOKEN']) {
@@ -9,8 +10,8 @@ if (!process.env['TRELLO_TOKEN']) {
 
 var t = new Trello(trelloKey, process.env['TRELLO_TOKEN']);
 var now = Date.now();
-var yesterday = new Date(now - (1000 * 60 * 60 * 24)).toISOString();
-var eightWeeks = new Date(now + (1000 * 60 * 60 * 24 * 7 * 8)).toISOString();
+var yesterday = now - (1000 * 60 * 60 * 24);
+var eightWeeks = now + (1000 * 60 * 60 * 24 * 7 * 8);
 
 var times = {
   'day after': (1000 * 60 * 60 * 24) * -1,
@@ -29,9 +30,25 @@ var smtpTransport = nodemailer.createTransport("SMTP",{
     }
 });
 
-process.on('exit', smtpTransport.close);
+var completed = Q.defer();
 
-function processCardChecklists(cardName, cardDue, cardURL) {
+function processCards(err, data) {
+  if (err) throw err;
+  var promises = [];
+  for (var i = 0, card; card = data[i]; i++) {
+    if (card.due) {
+      var due = Date.parse(card.due);
+      if (due > yesterday && due < eightWeeks) {
+        var deferred = Q.defer();
+        promises.push(deferred.promise);
+        t.get('/1/cards/' + card.id + '/checklists', { fields: 'name', card_fields: 'due' }, processCardChecklists(card.name, due, card.url, deferred));
+      }
+    }
+  }
+  Q.allSettled(promises).then(completed.resolve)
+}
+
+function processCardChecklists(cardName, cardDue, cardURL, deferred) {
   return function(err, data) {
     if (err) throw err;
 
@@ -64,21 +81,24 @@ function processCardChecklists(cardName, cardDue, cardURL) {
         subject: 'Bristech TODO',
         text: 'The following items need doing for ' + cardName + ':\n\n' + needsDoing.join('\n'),
         html: '<p>The following items need doing for <a href="' + cardURL + '">' + cardName + '</a></p><ul><li>' + needsDoing.join('</li><li>') + '</li></ul>'
-      }
-      smtpTransport.sendMail(mailOptions, function(error, response){
-        if(error){
+      };
+      smtpTransport.sendMail(email, function(error, response){
+        if (error) {
             console.log(error);
-        }else{
+        } else {
             console.log("Message sent: " + response.message);
         }
+        deferred.resolve();
       });
+    } else {
+      deferred.resolve();
     }
   };
 }
 
-t.get("/1/boards/VcltdZag/cards", { since: today, before: eightWeeks, fields: 'name,due' }, function(err, data) {
-  if (err) throw err;
-  for (var i = 0, card; card = data[i]; i++) {
-    t.get('/1/cards/' + card.id + '/checklists', { fields: 'name', card_fields: 'due' }, processCardChecklists(card.name, Date.parse(card.due).getTime()));
-  }
-})
+t.get("/1/boards/VcltdZag/cards", { fields: 'name,due,url' }, processCards);
+
+completed.promise.then(function() {
+  smtpTransport.close();
+  process.exit(0);
+});
