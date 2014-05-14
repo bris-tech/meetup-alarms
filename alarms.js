@@ -19,7 +19,7 @@ var times = {
 };
 
 
-var todo = /^(day after|on the day|week before|(\d+) weeks before/i;
+var todo = /^(day after|on the day|week before|(\d+) weeks before)/i;
 
 var smtpTransport = nodemailer.createTransport("SMTP",{
     service: "Gmail",
