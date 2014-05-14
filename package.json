@@ -1,0 +1,15 @@
+{
+  "name": "meetup-alarms",
+  "version": "0.0.0",
+  "description": "Bristech Meetup Alarms",
+  "main": "alarms.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "James Phillpotts <james.phillpotts@gmail.com> (http://github.com/mrpotes)",
+  "license": "ISC",
+  "dependencies": {
+    "node-trello": "^0.1.5",
+    "nodemailer": "^0.6.4"
+  }
+}
